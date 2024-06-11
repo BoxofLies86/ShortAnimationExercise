@@ -1,6 +1,6 @@
 ﻿  main.cpp
 C:\Users\josep\source\repos\SDLSimple\SDLSimple\main.cpp(44,28): warning C4244: 'initializing': conversion from 'double' to 'const int', possible loss of data
-C:\Users\josep\source\repos\SDLSimple\SDLSimple\main.cpp(45,15): warning C4244: 'initializing': conversion from 'double' to 'const int', possible loss of data
-C:\Users\josep\source\repos\SDLSimple\SDLSimple\main.cpp(46,16): warning C4244: 'initializing': conversion from 'double' to 'const int', possible loss of data
-C:\Users\josep\source\repos\SDLSimple\SDLSimple\main.cpp(47,18): warning C4244: 'initializing': conversion from 'double' to 'const int', possible loss of data
+C:\Users\josep\source\repos\SDLSimple\SDLSimple\main.cpp(45,29): warning C4244: 'initializing': conversion from 'double' to 'const int', possible loss of data
+C:\Users\josep\source\repos\SDLSimple\SDLSimple\main.cpp(46,30): warning C4244: 'initializing': conversion from 'double' to 'const int', possible loss of data
+C:\Users\josep\source\repos\SDLSimple\SDLSimple\main.cpp(47,32): warning C4244: 'initializing': conversion from 'double' to 'const int', possible loss of data
   SDLSimple.vcxproj -> C:\Users\josep\source\repos\SDLSimple\Debug\SDLSimple.exe

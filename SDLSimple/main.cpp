@@ -1,12 +1,12 @@
 /**
  * @file main.cpp
- * @author Sebastián Romero Cruz (sebastian.romerocruz@nyu.edu)
- * @brief A simple g_shader_program that creates a window with a blue background
- * Renders in a colored triangle that will be able to rotate along x or y-axis
- * and be able to scale
- * @date 2024-05-29
- *
- * @copyright NYU Tandon (c) 2024
+ * @author Joseph Lin (jcl9683@nyu.edu)
+ * Assignment: Simple 2D Scene
+ * Date due: 2024-06-15, 11:59pm
+ * I pledge that I have completed this assignment without
+ * collaborating with anyone else, in conformance with the
+ * NYU School of Engineering Policies and Procedures on
+ * Academic Misconduct.
  */
 #define GL_SILENCE_DEPRECATION
 #define GL_GLEXT_PROTOTYPES 1
@@ -26,29 +26,33 @@ enum AppStatus { RUNNING, TERMINATED };
 enum ScaleDirection { GROWING, SHRINKING };
 
 constexpr char V_SHADER_PATH[] = "shaders/vertex.glsl",
-F_SHADER_PATH[] = "shaders/fragment.glsl";
+               F_SHADER_PATH[] = "shaders/fragment.glsl";
 
 constexpr int WINDOW_WIDTH = 640 * 2,
-WINDOW_HEIGHT = 480 * 2;
+              WINDOW_HEIGHT = 480 * 2;
 
 constexpr float BG_RED = 0.1922f,
-BG_BLUE = 0.549f,
-BG_GREEN = 0.9059f,
-BG_OPACITY = 1.0f;
+                BG_BLUE = 0.549f,
+                BG_GREEN = 0.9059f,
+                BG_OPACITY = 1.0f;
 
 constexpr int VIEWPORT_X = 0,
-VIEWPORT_Y = 0,
-VIEWPORT_WIDTH = WINDOW_WIDTH,
-VIEWPORT_HEIGHT = WINDOW_HEIGHT;
+              VIEWPORT_Y = 0,
+              VIEWPORT_WIDTH = WINDOW_WIDTH,
+              VIEWPORT_HEIGHT = WINDOW_HEIGHT;
 
 constexpr int TRIANGLE_RED = 1.0,
-TRIANGLE_BLUE = 0.4,
-TRIANGLE_GREEN = 0.4,
-TRIANGLE_OPACITY = 1.0;
+              TRIANGLE_BLUE = 0.4,
+              TRIANGLE_GREEN = 0.4,
+              TRIANGLE_OPACITY = 1.0;
 
-constexpr float GROWTH_FACTOR = 1.01f;
-constexpr float SHRINK_FACTOR = 0.99f;
-constexpr int   MAX_FRAME = 40;
+//TRANSFORMATION STUFFS
+constexpr float GROWTH_FACTOR = 1.0001f;
+constexpr float SHRINK_FACTOR = 0.9999f;
+constexpr int   MAX_FRAME = 2000;
+
+int g_frame_counter = 0;
+bool g_is_growing = true;
 
 constexpr float BASE_SCALE = 1.0f,      // The unscaled size of your object
 MAX_AMPLITUDE = 1.01f,  // The most our triangle will be scaled up/down
@@ -62,7 +66,7 @@ AppStatus g_app_status = RUNNING;
 SDL_Window* g_display_window;
 
 ScaleDirection g_scale_direction = GROWING;
-int g_frame_counter = 0;
+
 
 ShaderProgram g_shader_program = ShaderProgram();
 glm::mat4 g_view_matrix,
@@ -73,10 +77,10 @@ g_projection_matrix;
 void initialise()
 {
     SDL_Init(SDL_INIT_VIDEO);
-    g_display_window = SDL_CreateWindow("Transformations!",
-        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        WINDOW_WIDTH, WINDOW_HEIGHT,
-        SDL_WINDOW_OPENGL);
+    g_display_window = SDL_CreateWindow("Assignment 1 :O",
+                                SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                                WINDOW_WIDTH, WINDOW_HEIGHT,
+                                SDL_WINDOW_OPENGL);
 
     SDL_GLContext context = SDL_GL_CreateContext(g_display_window);
     SDL_GL_MakeCurrent(g_display_window, context);
@@ -129,18 +133,32 @@ void update()
 {
     g_frame_counter++;
 
-    /** TRANSLATE */
-    glm::vec3 g_translation_factors = glm::vec3(TRAN_VALUE, 0.0f, 0.0f);
-    g_model_matrix = glm::translate(g_model_matrix, g_translation_factors);
 
-    /** ROTATE */
-    glm::vec3 g_rotation_triggers = glm::vec3(0.0f, 0.0f, 1.0f);
-    g_model_matrix = glm::rotate(g_model_matrix, ROT_ANGLE, g_rotation_triggers);
+    //scaling
+    glm::vec3 scale_vector;
+    g_frame_counter += 1;
+    
+    if (g_frame_counter >= MAX_FRAME) {
+        g_is_growing = !g_is_growing;
+        g_frame_counter = 0;
+    }
 
-    /** SCALING **/
-    float scale_factor = BASE_SCALE + MAX_AMPLITUDE * glm::cos(g_frame_counter / PULSE_SPEED);
-    glm::vec3 scale_factors = glm::vec3(scale_factor, scale_factor, 0.0f);
-    g_model_matrix = glm::scale(g_model_matrix, scale_factors);
+    scale_vector = glm::vec3(g_is_growing ? GROWTH_FACTOR : SHRINK_FACTOR,
+                           g_is_growing ? GROWTH_FACTOR : SHRINK_FACTOR, 1.0f);
+    g_model_matrix = glm::scale(g_model_matrix, scale_vector);
+
+    ///** TRANSLATE */
+    //glm::vec3 g_translation_factors = glm::vec3(TRAN_VALUE, 0.0f, 0.0f);
+    //g_model_matrix = glm::translate(g_model_matrix, g_translation_factors);
+
+    ///** ROTATE */
+    //glm::vec3 g_rotation_triggers = glm::vec3(0.0f, 0.0f, 1.0f);
+    //g_model_matrix = glm::rotate(g_model_matrix, ROT_ANGLE, g_rotation_triggers);
+
+    ///** SCALING **/
+    //float scale_factor = BASE_SCALE + MAX_AMPLITUDE * glm::cos(g_frame_counter / PULSE_SPEED);
+    //glm::vec3 scale_factors = glm::vec3(scale_factor, scale_factor, 0.0f);
+    //g_model_matrix = glm::scale(g_model_matrix, scale_factors);
 
     //    if (g_frame_counter >= MAX_FRAME)
     //    {
