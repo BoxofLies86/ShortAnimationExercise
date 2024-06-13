@@ -9,6 +9,7 @@
  * Academic Misconduct.
  */
 #define GL_SILENCE_DEPRECATION
+#define STB_IMAGE_IMPLEMENTATION
 #define GL_GLEXT_PROTOTYPES 1
 #define LOG(argument) std::cout << argument << '\n'
 
@@ -21,6 +22,7 @@
 #include "glm/mat4x4.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include "ShaderProgram.h"
+#include "stb_image.h"
 
 enum AppStatus { RUNNING, TERMINATED };
 enum ScaleDirection { GROWING, SHRINKING };
@@ -41,38 +43,61 @@ constexpr int VIEWPORT_X = 0,
               VIEWPORT_WIDTH = WINDOW_WIDTH,
               VIEWPORT_HEIGHT = WINDOW_HEIGHT;
 
-constexpr int TRIANGLE_RED = 1.0,
-              TRIANGLE_BLUE = 0.4,
-              TRIANGLE_GREEN = 0.4,
-              TRIANGLE_OPACITY = 1.0;
+//constexpr int TRIANGLE_RED = 1.0,
+//              TRIANGLE_BLUE = 0.4,
+//              TRIANGLE_GREEN = 0.4,
+//              TRIANGLE_OPACITY = 1.0;
 
-//TRANSFORMATION STUFFS
-constexpr float GROWTH_FACTOR = 1.0001f;
-constexpr float SHRINK_FACTOR = 0.9999f;
-constexpr int   MAX_FRAME = 2000;
+//Delta time
+constexpr float MILLISECONDS_IN_SECOND = 1000.0;
+float g_previous_ticks = 0.0f;
 
-int g_frame_counter = 0;
-bool g_is_growing = true;
+//transformation tracker
+float g_triangle_x = 0.0f;
+float g_triangle_rotate = 0.0f;
 
-constexpr float BASE_SCALE = 1.0f,      // The unscaled size of your object
-MAX_AMPLITUDE = 1.01f,  // The most our triangle will be scaled up/down
-PULSE_SPEED = 10.0f;    // How fast you want your triangle to "beat"
-
-constexpr float ROT_ANGLE = glm::radians(1.5f);
-constexpr float TRAN_VALUE = 0.025f;
+//texture global variables
+constexpr GLint NUMBER_OF_TEXTURES = 1,
+                LEVEL_OF_DETAIL = 0,
+                TEXTURE_BORDER = 0;
 
 AppStatus g_app_status = RUNNING;
-
 SDL_Window* g_display_window;
-
 ScaleDirection g_scale_direction = GROWING;
-
-
 ShaderProgram g_shader_program = ShaderProgram();
-glm::mat4 g_view_matrix,
-g_model_matrix,
-g_projection_matrix;
 
+glm::mat4 g_view_matrix,
+            g_model_matrix,
+            g_projection_matrix;
+
+
+GLuint load_texture(const char* filepath)
+{
+    // STEP 1: Loading the image file
+    int width, height, number_of_components;
+    unsigned char* image = stbi_load(filepath, &width, &height, &number_of_components, STBI_rgb_alpha);
+
+    if (image == NULL)
+    {
+        LOG("Unable to load image. Make sure the path is correct.");
+        assert(false);
+    }
+
+    // STEP 2: Generating and binding a texture ID to our image
+    GLuint textureID;
+    glGenTextures(NUMBER_OF_TEXTURES, &textureID);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+    glTexImage2D(GL_TEXTURE_2D, LEVEL_OF_DETAIL, GL_RGBA, width, height, TEXTURE_BORDER, GL_RGBA, GL_UNSIGNED_BYTE, image);
+
+    // STEP 3: Setting our texture filter parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    // STEP 4: Releasing our file from memory and returning our texture id
+    stbi_image_free(image);
+
+    return textureID;
+}
 
 void initialise()
 {
@@ -108,8 +133,6 @@ void initialise()
     g_shader_program.set_projection_matrix(g_projection_matrix);
     g_shader_program.set_view_matrix(g_view_matrix);
 
-    g_shader_program.set_colour(TRIANGLE_RED, TRIANGLE_BLUE, TRIANGLE_GREEN, TRIANGLE_OPACITY);
-
     glUseProgram(g_shader_program.get_program_id());
 
     glClearColor(BG_RED, BG_BLUE, BG_GREEN, BG_OPACITY);
@@ -131,29 +154,30 @@ void process_input()
 
 void update()
 {
-    g_frame_counter++;
+
+    //DELTA TIME STUFF BRO
+    float ticks = (float) SDL_GetTicks() / MILLISECONDS_IN_SECOND;
+    float delta_time = ticks - g_previous_ticks;
+    g_previous_ticks = ticks;
+
+    //Updating transformation logic
+    g_triangle_x += 0.5f * delta_time;
+    g_triangle_rotate += 150.0f * delta_time;
 
 
-    //scaling
-    glm::vec3 scale_vector;
-    g_frame_counter += 1;
-    
-    if (g_frame_counter >= MAX_FRAME) {
-        g_is_growing = !g_is_growing;
-        g_frame_counter = 0;
-    }
+    //Reset
+    g_model_matrix = glm::mat4(1.0f);
 
-    scale_vector = glm::vec3(g_is_growing ? GROWTH_FACTOR : SHRINK_FACTOR,
-                           g_is_growing ? GROWTH_FACTOR : SHRINK_FACTOR, 1.0f);
-    g_model_matrix = glm::scale(g_model_matrix, scale_vector);
+    //Rotate
+    g_model_matrix = glm::rotate(g_model_matrix, glm::radians(g_triangle_rotate), glm::vec3(0.0f, 0.0f, 1.0f));
 
-    ///** TRANSLATE */
-    //glm::vec3 g_translation_factors = glm::vec3(TRAN_VALUE, 0.0f, 0.0f);
-    //g_model_matrix = glm::translate(g_model_matrix, g_translation_factors);
+    /** TRANSLATE */
+    glm::vec3 g_translation_factors = glm::vec3(g_triangle_x, 0.0f, 0.0f);
+    g_model_matrix = glm::translate(g_model_matrix, g_translation_factors);
 
-    ///** ROTATE */
-    //glm::vec3 g_rotation_triggers = glm::vec3(0.0f, 0.0f, 1.0f);
-    //g_model_matrix = glm::rotate(g_model_matrix, ROT_ANGLE, g_rotation_triggers);
+
+
+
 
     ///** SCALING **/
     //float scale_factor = BASE_SCALE + MAX_AMPLITUDE * glm::cos(g_frame_counter / PULSE_SPEED);
