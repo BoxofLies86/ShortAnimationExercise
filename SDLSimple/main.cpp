@@ -27,9 +27,6 @@
 enum AppStatus { RUNNING, TERMINATED };
 enum ScaleDirection { GROWING, SHRINKING };
 
-constexpr char V_SHADER_PATH[] = "shaders/vertex.glsl",
-               F_SHADER_PATH[] = "shaders/fragment.glsl";
-
 constexpr int WINDOW_WIDTH = 640 * 2,
               WINDOW_HEIGHT = 480 * 2;
 
@@ -43,6 +40,9 @@ constexpr int VIEWPORT_X = 0,
               VIEWPORT_WIDTH = WINDOW_WIDTH,
               VIEWPORT_HEIGHT = WINDOW_HEIGHT;
 
+constexpr char V_SHADER_PATH[] = "shaders/vertex_textured.glsl",
+                F_SHADER_PATH[] = "shaders/fragment_textured.glsl";
+
 //constexpr int TRIANGLE_RED = 1.0,
 //              TRIANGLE_BLUE = 0.4,
 //              TRIANGLE_GREEN = 0.4,
@@ -53,23 +53,30 @@ constexpr float MILLISECONDS_IN_SECOND = 1000.0;
 float g_previous_ticks = 0.0f;
 
 //transformation tracker
-float g_triangle_x = 0.0f;
-float g_triangle_rotate = 0.0f;
+glm::vec3 g_rotation_kiriko = glm::vec3(0.0f, 0.0f, 0.0f);
 
+constexpr float ROT_INCREMENT = 1.0f;
 //texture global variables
 constexpr GLint NUMBER_OF_TEXTURES = 1,
                 LEVEL_OF_DETAIL = 0,
                 TEXTURE_BORDER = 0;
 
-AppStatus g_app_status = RUNNING;
+constexpr char KIRIKO_SPRITE_FILEPATH[] = "kiriko.png";
+
+constexpr glm::vec3 INIT_SCALE = glm::vec3(2.5f, 5.263f, 0.0f),
+                      INIT_POS_KIRIKO = glm::vec3(2.0f, 0.0f, 0.0f);
+
+
 SDL_Window* g_display_window;
-ScaleDirection g_scale_direction = GROWING;
+AppStatus g_app_status = RUNNING;
+//ScaleDirection g_scale_direction = GROWING;
 ShaderProgram g_shader_program = ShaderProgram();
 
 glm::mat4 g_view_matrix,
-            g_model_matrix,
+            g_kiriko_matrix,
             g_projection_matrix;
 
+GLuint g_kiriko_texture_id;
 
 GLuint load_texture(const char* filepath)
 {
@@ -126,8 +133,8 @@ void initialise()
 
     g_shader_program.load(V_SHADER_PATH, F_SHADER_PATH);
 
+    g_kiriko_matrix = glm::mat4(1.0f);
     g_view_matrix = glm::mat4(1.0f);
-    g_model_matrix = glm::mat4(1.0f);
     g_projection_matrix = glm::ortho(-5.0f, 5.0f, -3.75f, 3.75f, -1.0f, 1.0f);
 
     g_shader_program.set_projection_matrix(g_projection_matrix);
@@ -136,6 +143,11 @@ void initialise()
     glUseProgram(g_shader_program.get_program_id());
 
     glClearColor(BG_RED, BG_BLUE, BG_GREEN, BG_OPACITY);
+
+    g_kiriko_texture_id = load_texture(KIRIKO_SPRITE_FILEPATH);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 
@@ -161,19 +173,17 @@ void update()
     g_previous_ticks = ticks;
 
     //Updating transformation logic
-    g_triangle_x += 0.5f * delta_time;
-    g_triangle_rotate += 150.0f * delta_time;
+    g_rotation_kiriko.y += ROT_INCREMENT * delta_time;
+
 
 
     //Reset
-    g_model_matrix = glm::mat4(1.0f);
+    g_kiriko_matrix = glm::mat4(1.0f);
 
-    //Rotate
-    g_model_matrix = glm::rotate(g_model_matrix, glm::radians(g_triangle_rotate), glm::vec3(0.0f, 0.0f, 1.0f));
-
-    /** TRANSLATE */
-    glm::vec3 g_translation_factors = glm::vec3(g_triangle_x, 0.0f, 0.0f);
-    g_model_matrix = glm::translate(g_model_matrix, g_translation_factors);
+    //Transformations
+    g_kiriko_matrix = glm::translate(g_kiriko_matrix, INIT_POS_KIRIKO);
+    //g_kiriko_matrix = glm::rotate(g_kiriko_matrix, g_rotation_kiriko.y, glm::vec3(0.0f, 1.0f, 0.0f));
+    g_kiriko_matrix = glm::scale(g_kiriko_matrix, INIT_SCALE);
 
 
 
@@ -209,23 +219,53 @@ void update()
     //    g_model_matrix = glm::scale(g_model_matrix, scale_factors);
 }
 
+void draw_object(glm::mat4& object_g_model_matrix, GLuint& object_texture_id)
+{
+    g_shader_program.set_model_matrix(object_g_model_matrix);
+    glBindTexture(GL_TEXTURE_2D, object_texture_id);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+}
+
 
 void render() {
     glClear(GL_COLOR_BUFFER_BIT);
 
-    g_shader_program.set_model_matrix(g_model_matrix);
 
+    //vertices
     float vertices[] =
     {
-         0.5f, -0.5f,
-         0.0f,  0.5f,
-        -0.5f, -0.5f
+         -0.5f, -0.5f, //bottom left
+         0.5f, -0.5f,  //bottom right
+         0.5f, 0.5f,
+         -0.5f, -0.5f, 
+         0.5f, 0.5f, 
+         -0.5f, 0.5f
+    };
+
+
+
+    //textures
+    float texture_coordinates[] = {
+        0.0f, 1.0f, // bottom left
+        1.0f, 1.0f, // bottom right
+        1.0f, 0.0f, // top right
+        0.0f, 1.0f, // bottom left
+        1.0f, 0.0f, // top right
+        0.0f, 0.0f,  // top left
     };
 
     glVertexAttribPointer(g_shader_program.get_position_attribute(), 2, GL_FLOAT, false, 0, vertices);
     glEnableVertexAttribArray(g_shader_program.get_position_attribute());
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+
+    glVertexAttribPointer(g_shader_program.get_tex_coordinate_attribute(), 2, GL_FLOAT, false, 0, texture_coordinates);
+    glEnableVertexAttribArray(g_shader_program.get_tex_coordinate_attribute());
+    
+    //bind texture
+    draw_object(g_kiriko_matrix, g_kiriko_texture_id);
+
+
     glDisableVertexAttribArray(g_shader_program.get_position_attribute());
+    glDisableVertexAttribArray(g_shader_program.get_tex_coordinate_attribute());
 
     SDL_GL_SwapWindow(g_display_window);
 }
