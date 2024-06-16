@@ -56,6 +56,11 @@ float g_previous_ticks = 0.0f;
 glm::vec3 g_rotation_kiriko = glm::vec3(0.0f, 0.0f, 0.0f);
 glm::vec3 g_rotation_ana = glm::vec3(0.0f, 0.0f, 0.0f);
 
+float g_kiriko_x = 0.0f;
+float g_kiriko_y = 0.0f;
+float g_ana_x = 0.0f;
+float g_ana_y = 0.0f;
+
 constexpr float ROT_INCREMENT = 1.0f;
 //texture global variables
 constexpr GLint NUMBER_OF_TEXTURES = 1,
@@ -65,7 +70,8 @@ constexpr GLint NUMBER_OF_TEXTURES = 1,
 constexpr char KIRIKO_SPRITE_FILEPATH[] = "kiriko.png",
                ANA_SPRITE_FILEPATH[] = "ana.png";
 
-constexpr glm::vec3 INIT_SCALE = glm::vec3(2.5f, 5.263f, 0.0f),
+constexpr glm::vec3 INIT_KIRIKO_SCALE = glm::vec3(0.5f, 1.0f, 0.0f),
+                    INIT_ANA_SCALE = glm::vec3(4.0f, 4.0f, 0.0f),
                     INIT_POS_KIRIKO = glm::vec3(2.0f, 0.0f, 0.0f),
                     INIT_POS_ANA = glm::vec3(-2.0f, 0.0f, 0.0f);
 
@@ -182,6 +188,9 @@ void update()
     //Updating transformation logic
     g_rotation_kiriko.y += ROT_INCREMENT * delta_time;
     g_rotation_ana.y += ROT_INCREMENT * delta_time;
+    g_kiriko_x += (cos(ticks)/2) * delta_time;
+    g_kiriko_y += (sin(ticks)/2) * delta_time;
+    g_ana_x += 1.0f * delta_time;
 
 
 
@@ -191,15 +200,20 @@ void update()
 
     //Transformations
     g_kiriko_matrix = glm::translate(g_kiriko_matrix, INIT_POS_KIRIKO);
-    //g_kiriko_matrix = glm::rotate(g_kiriko_matrix, g_rotation_kiriko.y, glm::vec3(0.0f, 1.0f, 0.0f));
-    g_kiriko_matrix = glm::scale(g_kiriko_matrix, INIT_SCALE);
+    g_kiriko_matrix = glm::rotate(g_kiriko_matrix, g_rotation_kiriko.y, glm::vec3(0.0f, 1.0f, 0.0f));
+    g_kiriko_matrix = glm::scale(g_kiriko_matrix, INIT_KIRIKO_SCALE);
+    
 
 
     //FOR ANA
     g_ana_matrix = glm::translate(g_ana_matrix, INIT_POS_ANA);
+    g_ana_matrix = glm::translate(g_ana_matrix, glm::vec3(g_ana_x, 0.0f, 0.0f));
     //g_ana_matrix = glm::rotate(g_ana_matrix, g_rotation_ana.y, glm::vec3(0.0f, 1.0f, 0.0f));
-    g_ana_matrix = glm::scale(g_ana_matrix, INIT_SCALE);
+    g_ana_matrix = glm::scale(g_ana_matrix, INIT_ANA_SCALE);
 
+    glm::mat4 combined_matrix = g_kiriko_matrix * g_ana_matrix;
+
+    g_kiriko_matrix = glm::translate(g_ana_matrix, glm::vec3(g_kiriko_x, g_kiriko_y, 0.0f));
 
 
 
