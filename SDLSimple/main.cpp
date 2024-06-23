@@ -73,13 +73,27 @@ constexpr GLint NUMBER_OF_TEXTURES = 1,
                 LEVEL_OF_DETAIL = 0,
                 TEXTURE_BORDER = 0;
 
-constexpr char KIRIKO_SPRITE_FILEPATH[] = "kiriko.png",
-               ANA_SPRITE_FILEPATH[] = "ana.png";
+//constexpr char KIRIKO_SPRITE_FILEPATH[] = "kiriko.png",
+//               ANA_SPRITE_FILEPATH[] = "ana.png";
 
-constexpr glm::vec3 INIT_KIRIKO_SCALE = glm::vec3(0.5f, 0.7f, 0.0f),
-                    INIT_ANA_SCALE = glm::vec3(4.0f, 4.0f, 0.0f),
-                    INIT_POS_KIRIKO = glm::vec3(2.0f, 0.0f, 0.0f),
-                    INIT_POS_ANA = glm::vec3(-2.0f, 0.0f, 0.0f);
+//pong!
+constexpr char RED_SPRITE_FILEPATH[] = "red.png";
+constexpr char BLUE_SPRITE_FILEPATH[] = "blue.png";
+constexpr char BALLZ_SPRITE_FILEPATH[] = "ballz.png";
+
+
+//not pong :(
+//constexpr glm::vec3 INIT_KIRIKO_SCALE = glm::vec3(0.5f, 0.7f, 0.0f),
+//                    INIT_ANA_SCALE = glm::vec3(4.0f, 4.0f, 0.0f),
+//                    INIT_POS_KIRIKO = glm::vec3(2.0f, 0.0f, 0.0f),
+//                    INIT_POS_ANA = glm::vec3(-2.0f, 0.0f, 0.0f);
+
+//pong!
+constexpr glm::vec3 INIT_RED_SCALE = glm::vec3(1.0f, 5.0f, 0.0f),
+                    INIT_BLUE_SCALE = glm::vec3(1.0f, 1.0f, 0.0f),
+                    INIT_BALLZ_SCALE = glm::vec3(1.0f, 1.0f, 0.0f);
+
+constexpr glm::vec3 INIT_POS_RED = glm::vec3(3.0f, 0.0f, 0.0f);
 
 
 SDL_Window* g_display_window;
@@ -87,13 +101,24 @@ AppStatus g_app_status = RUNNING;
 //ScaleDirection g_scale_direction = GROWING;
 ShaderProgram g_shader_program = ShaderProgram();
 
+//glm::mat4 g_view_matrix,
+//          g_kiriko_matrix,
+//          g_ana_matrix,
+//          g_projection_matrix;
+//
+//GLuint g_kiriko_texture_id;
+//GLuint g_ana_texture_id;
+
+//PONG!
 glm::mat4 g_view_matrix,
-          g_kiriko_matrix,
-          g_ana_matrix,
+          g_blue_matrix,
+          g_red_matrix,
+          g_ballz_matrix,
           g_projection_matrix;
 
-GLuint g_kiriko_texture_id;
-GLuint g_ana_texture_id;
+GLuint g_blue_texture_id;
+GLuint g_red_texture_id;
+GLuint g_ballz_texture_id;
 
 GLuint load_texture(const char* filepath)
 {
@@ -126,7 +151,7 @@ GLuint load_texture(const char* filepath)
 void initialise()
 {
     SDL_Init(SDL_INIT_VIDEO);
-    g_display_window = SDL_CreateWindow("Assignment 1 :O",
+    g_display_window = SDL_CreateWindow("Assignment 2 :O",
                                 SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                 WINDOW_WIDTH, WINDOW_HEIGHT,
                                 SDL_WINDOW_OPENGL);
@@ -150,8 +175,9 @@ void initialise()
 
     g_shader_program.load(V_SHADER_PATH, F_SHADER_PATH);
 
-    g_kiriko_matrix = glm::mat4(1.0f);
-    g_ana_matrix = glm::mat4(1.0f);
+    g_red_matrix = glm::mat4(1.0f);
+    g_blue_matrix = glm::mat4(1.0f);
+    g_ballz_matrix = glm::mat4(1.0f);
     g_view_matrix = glm::mat4(1.0f);
     g_projection_matrix = glm::ortho(-5.0f, 5.0f, -3.75f, 3.75f, -1.0f, 1.0f);
 
@@ -162,8 +188,12 @@ void initialise()
 
     glClearColor(BG_RED, BG_BLUE, BG_GREEN, BG_OPACITY);
 
-    g_kiriko_texture_id = load_texture(KIRIKO_SPRITE_FILEPATH);
-    g_ana_texture_id = load_texture(ANA_SPRITE_FILEPATH);
+    g_blue_texture_id = load_texture(BLUE_SPRITE_FILEPATH);
+    g_red_texture_id = load_texture(RED_SPRITE_FILEPATH);
+    g_ballz_texture_id = load_texture(BALLZ_SPRITE_FILEPATH);
+
+    //g_kiriko_texture_id = load_texture(KIRIKO_SPRITE_FILEPATH);
+    //g_ana_texture_id = load_texture(ANA_SPRITE_FILEPATH);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -192,91 +222,46 @@ void update()
     g_previous_ticks = ticks;
 
     //Updating transformation logic
-    g_rotation_kiriko.y += ROT_INCREMENT * delta_time;
-    g_rotation_ana.y += ROT_INCREMENT * delta_time;
-    g_kiriko_x += (cos(ticks)/4) * delta_time;
-    g_kiriko_y += (sin(ticks)/4) * delta_time;
-    g_ana_x += (cos(ticks)/4) * delta_time;
-    g_ana_y += (sin(ticks)/4) * delta_time;
-    
-    g_scale_kiriko += 0.05f * delta_time;
-    
+    //g_rotation_kiriko.y += ROT_INCREMENT * delta_time;
+    //g_rotation_ana.y += ROT_INCREMENT * delta_time;
+    //g_kiriko_x += (cos(ticks)/4) * delta_time;
+    //g_kiriko_y += (sin(ticks)/4) * delta_time;
+    //g_ana_x += (cos(ticks)/4) * delta_time;
+    //g_ana_y += (sin(ticks)/4) * delta_time;
+    //
+    //g_scale_kiriko += 0.05f * delta_time;
   
-    //g_scale_kiriko += ROT_INCREMENT * delta_time;
-
-    //g_scale_kiriko += ROT_INCREMENT * delta_time;
-    //g_ana_x += 1.0f * delta_time;
-    //g_ana_y += 1.0f * delta_time;
 
 
+
+
+    //PONG RESETS
+    g_red_matrix = glm::mat4(1.0f);
+
+   
+    //PONG STUFFS BROSSKIE
+    g_red_matrix = glm::translate(g_red_matrix, INIT_POS_RED);
+    g_red_matrix = glm::scale(g_red_matrix, INIT_RED_SCALE);
 
     //Reset
-    g_kiriko_matrix = glm::mat4(1.0f);
-    g_ana_matrix = glm::mat4(1.0f);
+    //g_kiriko_matrix = glm::mat4(1.0f);
+    //g_ana_matrix = glm::mat4(1.0f);
 
-    //Transformations
-    g_kiriko_matrix = glm::translate(g_kiriko_matrix, INIT_POS_KIRIKO);
-    //g_kiriko_matrix = glm::scale(g_kiriko_matrix, INIT_KIRIKO_SCALE);
-    g_ana_matrix = glm::translate(g_ana_matrix, INIT_POS_ANA);
-    g_ana_matrix = glm::scale(g_ana_matrix, INIT_ANA_SCALE);
-    
-    
+    ////Transformations
+    //g_kiriko_matrix = glm::translate(g_kiriko_matrix, INIT_POS_KIRIKO);
+    ////g_kiriko_matrix = glm::scale(g_kiriko_matrix, INIT_KIRIKO_SCALE);
+    //g_ana_matrix = glm::translate(g_ana_matrix, INIT_POS_ANA);
+    //g_ana_matrix = glm::scale(g_ana_matrix, INIT_ANA_SCALE);
+    //
+    //
+    ////g_kiriko_matrix = glm::translate(g_ana_matrix, glm::vec3(g_kiriko_x, g_kiriko_y, 0.0f));
+    //
+    //g_ana_matrix = glm::translate(g_ana_matrix, glm::vec3(g_ana_x, g_ana_y, 0.0f));
     //g_kiriko_matrix = glm::translate(g_ana_matrix, glm::vec3(g_kiriko_x, g_kiriko_y, 0.0f));
-    
-    g_ana_matrix = glm::translate(g_ana_matrix, glm::vec3(g_ana_x, g_ana_y, 0.0f));
-    g_kiriko_matrix = glm::translate(g_ana_matrix, glm::vec3(g_kiriko_x, g_kiriko_y, 0.0f));
-    g_kiriko_matrix = glm::scale(g_kiriko_matrix, g_scale_kiriko);
-    g_ana_matrix = glm::rotate(g_ana_matrix, g_rotation_ana.y, glm::vec3(0.0f, 1.0f, 0.0f));
-    
-
-    
-    
-    
-    
-    
-    //g_ana_matrix = glm::translate(g_ana_matrix, glm::vec3(-g_ana_x, -g_ana_y, 0.0f));
-    
-
-    
-    //FOR ANA
-    
-    
+    //g_kiriko_matrix = glm::scale(g_kiriko_matrix, g_scale_kiriko);
     //g_ana_matrix = glm::rotate(g_ana_matrix, g_rotation_ana.y, glm::vec3(0.0f, 1.0f, 0.0f));
     
 
-    
-    
-
-
-
-    ///** SCALING **/
-    //float scale_factor = BASE_SCALE + MAX_AMPLITUDE * glm::cos(g_frame_counter / PULSE_SPEED);
-    //glm::vec3 scale_factors = glm::vec3(scale_factor, scale_factor, 0.0f);
-    //g_model_matrix = glm::scale(g_model_matrix, scale_factors);
-
-    //    if (g_frame_counter >= MAX_FRAME)
-    //    {
-    //        g_frame_counter = 0;
-    //        g_scale_direction = g_scale_direction == GROWING ?
-    //                            g_scale_direction = SHRINKING :
-    //                            g_scale_direction = GROWING;
-    //    }
-    //    
-    //    glm::vec3 scale_factors = glm::vec3(
-    //                                        // x-direction
-    //                                        g_scale_direction == GROWING ?
-    //                                        GROWTH_FACTOR : SHRINK_FACTOR,
-    //                                        
-    //                                        // y-direction
-    //                                        g_scale_direction == GROWING ?
-    //                                        GROWTH_FACTOR : SHRINK_FACTOR,
-    //                                        
-    //                                        // z-direction
-    //                                        0.0f
-    //                                        );
-    //    
-    //    
-    //    g_model_matrix = glm::scale(g_model_matrix, scale_factors);
 }
 
 void draw_object(glm::mat4& object_g_model_matrix, GLuint& object_texture_id)
@@ -321,8 +306,9 @@ void render() {
     glEnableVertexAttribArray(g_shader_program.get_tex_coordinate_attribute());
     
     //bind texture
-    draw_object(g_kiriko_matrix, g_kiriko_texture_id);
-    draw_object(g_ana_matrix, g_ana_texture_id);
+    draw_object(g_red_matrix, g_red_texture_id);
+    //draw_object(g_blue_matrix, g_blue_texture_id);
+    //draw_object(g_ballz_matrix, g_ballz_texture_id);
 
 
     glDisableVertexAttribArray(g_shader_program.get_position_attribute());
