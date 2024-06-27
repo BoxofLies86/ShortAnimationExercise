@@ -27,8 +27,8 @@
 enum AppStatus { RUNNING, TERMINATED };
 enum ScaleDirection { GROWING, SHRINKING };
 
-constexpr int WINDOW_WIDTH = 640 * 2,
-              WINDOW_HEIGHT = 480 * 2;
+constexpr int WINDOW_WIDTH = 550 * 2,
+              WINDOW_HEIGHT = 400 * 2;
 
 constexpr float BG_RED = 0.1922f,
                 BG_BLUE = 0.549f,
@@ -43,29 +43,9 @@ constexpr int VIEWPORT_X = 0,
 constexpr char V_SHADER_PATH[] = "shaders/vertex_textured.glsl",
                 F_SHADER_PATH[] = "shaders/fragment_textured.glsl";
 
-//constexpr int TRIANGLE_RED = 1.0,
-//              TRIANGLE_BLUE = 0.4,
-//              TRIANGLE_GREEN = 0.4,
-//              TRIANGLE_OPACITY = 1.0;
-
 //Delta time
 constexpr float MILLISECONDS_IN_SECOND = 1000.0;
 float g_previous_ticks = 0.0f;
-
-//transformation tracker
-glm::vec3 g_rotation_kiriko = glm::vec3(0.0f, 0.0f, 0.0f);
-glm::vec3 g_rotation_ana = glm::vec3(0.0f, 0.0f, 0.0f);
-glm::vec3 g_scale_kiriko = glm::vec3(0.0f, 0.0f, 0.0f);
-bool g_kiriko_growing = true;
-int g_kiriko_counter = 0;
-constexpr int MAX_FRAME = 50;
-constexpr float GROWTH_FACTOR = 1.01f;
-constexpr float SHRINK_FACTOR = 0.99f;
-
-float g_kiriko_x = 0.0f;
-float g_kiriko_y = 0.0f;
-float g_ana_x = 0.0f;
-float g_ana_y = 0.0f;
 
 constexpr float ROT_INCREMENT = 1.0f;
 //texture global variables
@@ -73,41 +53,57 @@ constexpr GLint NUMBER_OF_TEXTURES = 1,
                 LEVEL_OF_DETAIL = 0,
                 TEXTURE_BORDER = 0;
 
-//constexpr char KIRIKO_SPRITE_FILEPATH[] = "kiriko.png",
-//               ANA_SPRITE_FILEPATH[] = "ana.png";
-
 //pong!
 constexpr char RED_SPRITE_FILEPATH[] = "red.png";
 constexpr char BLUE_SPRITE_FILEPATH[] = "blue.png";
 constexpr char BALLZ_SPRITE_FILEPATH[] = "ballz.png";
 
-
-//not pong :(
-//constexpr glm::vec3 INIT_KIRIKO_SCALE = glm::vec3(0.5f, 0.7f, 0.0f),
-//                    INIT_ANA_SCALE = glm::vec3(4.0f, 4.0f, 0.0f),
-//                    INIT_POS_KIRIKO = glm::vec3(2.0f, 0.0f, 0.0f),
-//                    INIT_POS_ANA = glm::vec3(-2.0f, 0.0f, 0.0f);
-
 //pong!
-constexpr glm::vec3 INIT_RED_SCALE = glm::vec3(1.0f, 5.0f, 0.0f),
-                    INIT_BLUE_SCALE = glm::vec3(1.0f, 1.0f, 0.0f),
+constexpr glm::vec3 INIT_RED_SCALE = glm::vec3(1.0f, 3.0f, 0.0f),
+                    INIT_BLUE_SCALE = glm::vec3(1.0f, 3.0f, 0.0f),
                     INIT_BALLZ_SCALE = glm::vec3(1.0f, 1.0f, 0.0f);
 
-constexpr glm::vec3 INIT_POS_RED = glm::vec3(3.0f, 0.0f, 0.0f);
+constexpr glm::vec3 INIT_POS_RED = glm::vec3(-3.0f, 0.0f, 0.0f);
+constexpr glm::vec3 INIT_POS_BLUE = glm::vec3(3.0f, 0.0f, 0.0f);
 
+bool red_collision_top = false;
+bool red_collision_bottom = false;
+bool red_collision_top_ai = false;
+bool red_collision_bottom_ai = false;
+
+bool blue_collision_top = false;
+bool blue_collision_bottom = false;
+
+
+
+
+bool ballz_collision_top = false;
+bool ballz_collision_bottom = false;
+bool ballz_collision_right = false;
+bool ballz_collision_left = false;
+
+
+
+bool ai_mode = false;
+
+//keeping track of position using vectors
+glm::vec3 g_blue_position = glm::vec3(0.0f, 0.0f, 0.0f);
+glm::vec3 g_blue_movement = glm::vec3(0.0f, 0.0f, 0.0f);
+
+glm::vec3 g_red_position = glm::vec3(0.0f, 0.0f, 0.0f);
+glm::vec3 g_red_movement = glm::vec3(0.0f, 0.0f, 0.0f);
+
+glm::vec3 g_ballz_position = glm::vec3(0.0f, 0.0f, 0.0f);
+glm::vec3 g_ballz_movement = glm::vec3(0.0f, 0.0f, 0.0f);
+
+float increment = 3.0f;
+float direction = 0.0f;
+float g_blue_speed = 3.0f;
+float g_red_speed = 3.0f;
 
 SDL_Window* g_display_window;
 AppStatus g_app_status = RUNNING;
-//ScaleDirection g_scale_direction = GROWING;
 ShaderProgram g_shader_program = ShaderProgram();
-
-//glm::mat4 g_view_matrix,
-//          g_kiriko_matrix,
-//          g_ana_matrix,
-//          g_projection_matrix;
-//
-//GLuint g_kiriko_texture_id;
-//GLuint g_ana_texture_id;
 
 //PONG!
 glm::mat4 g_view_matrix,
@@ -202,14 +198,113 @@ void initialise()
 
 void process_input()
 {
+    
+    g_red_movement = glm::vec3(0.0f);
+    g_blue_movement = glm::vec3(0.0f);
+    g_ballz_movement = glm::vec3(0.0f);
+
+
+    
+    
+    
+    
     SDL_Event event;
     while (SDL_PollEvent(&event))
     {
-        if (event.type == SDL_QUIT || event.type == SDL_WINDOWEVENT_CLOSE)
+        switch (event.type)
         {
-            g_app_status = TERMINATED;
+            case SDL_QUIT:
+            case SDL_WINDOWEVENT_CLOSE:
+                g_app_status = TERMINATED;
+                break;
+            
+            
+            case SDL_KEYDOWN:
+                switch (event.key.keysym.sym)
+                {
+                    case SDLK_UP:
+                        g_blue_movement.y = 1.0f;
+                        break;
+
+                    case SDLK_DOWN:
+                        g_blue_movement.y = -1.0f;
+                        break;
+
+                    case SDLK_q:
+                        g_app_status = TERMINATED;
+                        break;
+
+                    case SDLK_w:
+                        g_red_movement.y = 1.0f;
+                        break;
+                    case SDLK_s:
+                        g_red_movement.y = -1.0f;
+                        break;
+                    case SDLK_t:
+                        ai_mode = !(ai_mode);
+                        break;
+
+                    default:
+                        break;
+                }
+                default:
+                    break;
         }
     }
+
+
+    const Uint8* key_state = SDL_GetKeyboardState(NULL);
+    if (key_state[SDL_SCANCODE_UP])
+    {
+        if (blue_collision_top == false)
+        {
+            g_blue_movement.y = 1.0f;
+        }
+    }
+    else if (key_state[SDL_SCANCODE_DOWN])
+    {
+        if (blue_collision_bottom == false)
+        {
+            g_blue_movement.y = -1.0f;
+        }
+    }
+    
+    if (key_state[SDL_SCANCODE_W])
+    {
+        if (ai_mode == false)
+        {
+            if (red_collision_top == false)
+            {
+                g_red_movement.y = 1.0f;
+            }
+
+        }
+        
+        
+    }
+    else if (key_state[SDL_SCANCODE_S])
+    {
+        if (ai_mode == false)
+        {
+            if (red_collision_bottom == false)
+            {
+                g_red_movement.y = -1.0f;
+            }
+
+        }
+        
+    }
+
+    //no cheating!!
+    if (glm::length(g_blue_movement) > 1.0f)
+    {
+        g_blue_movement = glm::normalize(g_blue_movement);
+    }
+    if (glm::length(g_red_movement) > 1.0f)
+    {
+        g_red_movement = glm::normalize(g_red_movement);
+    }
+
 }
 
 
@@ -220,48 +315,111 @@ void update()
     float ticks = (float) SDL_GetTicks() / MILLISECONDS_IN_SECOND;
     float delta_time = ticks - g_previous_ticks;
     g_previous_ticks = ticks;
-
-    //Updating transformation logic
-    //g_rotation_kiriko.y += ROT_INCREMENT * delta_time;
-    //g_rotation_ana.y += ROT_INCREMENT * delta_time;
-    //g_kiriko_x += (cos(ticks)/4) * delta_time;
-    //g_kiriko_y += (sin(ticks)/4) * delta_time;
-    //g_ana_x += (cos(ticks)/4) * delta_time;
-    //g_ana_y += (sin(ticks)/4) * delta_time;
-    //
-    //g_scale_kiriko += 0.05f * delta_time;
   
 
-
-
+    //player input changes
+    g_blue_position += g_blue_movement * g_blue_speed * delta_time;
+    g_red_position += g_red_movement * g_red_speed * delta_time;
 
     //PONG RESETS
     g_red_matrix = glm::mat4(1.0f);
+    g_blue_matrix = glm::mat4(1.0f);
+    g_ballz_matrix = glm::mat4(1.0f);
 
    
     //PONG STUFFS BROSSKIE
+    
+    //red!
+    g_red_matrix = glm::translate(g_red_matrix, g_red_position);
+    if (ai_mode == true)
+    {
+        g_red_matrix = glm::mat4(1.0f);
+        if (red_collision_top_ai == true || red_collision_bottom_ai == true)
+        {
+            increment = -increment;
+        }
+        direction += increment * delta_time;
+        g_red_matrix = glm::translate(g_red_matrix, glm::vec3(0.0f, direction, 0.0f));
+      
+        float y_red_distance_top_ai = (direction + INIT_POS_RED.y + INIT_RED_SCALE.y / 2.0f) - 3.75f;
+        float y_red_distance_bottom_ai = (direction + INIT_POS_RED.y - INIT_RED_SCALE.y / 2.0f) + 3.75f;
+
+        if (y_red_distance_top_ai > 0)
+        {
+            red_collision_top_ai = true;
+        }
+        else { red_collision_top_ai = false; }
+        if (y_red_distance_bottom_ai < 0)
+        {
+            red_collision_bottom_ai = true;
+        }
+        else { red_collision_bottom_ai = false; }
+    }
     g_red_matrix = glm::translate(g_red_matrix, INIT_POS_RED);
     g_red_matrix = glm::scale(g_red_matrix, INIT_RED_SCALE);
+    
+    
+    //blue! 
+    g_blue_matrix = glm::translate(g_blue_matrix, INIT_POS_BLUE);
+    g_blue_matrix = glm::translate(g_blue_matrix, g_blue_position);
+    g_blue_matrix = glm::scale(g_blue_matrix, INIT_BLUE_SCALE);
 
-    //Reset
-    //g_kiriko_matrix = glm::mat4(1.0f);
-    //g_ana_matrix = glm::mat4(1.0f);
-
-    ////Transformations
-    //g_kiriko_matrix = glm::translate(g_kiriko_matrix, INIT_POS_KIRIKO);
-    ////g_kiriko_matrix = glm::scale(g_kiriko_matrix, INIT_KIRIKO_SCALE);
-    //g_ana_matrix = glm::translate(g_ana_matrix, INIT_POS_ANA);
-    //g_ana_matrix = glm::scale(g_ana_matrix, INIT_ANA_SCALE);
-    //
-    //
-    ////g_kiriko_matrix = glm::translate(g_ana_matrix, glm::vec3(g_kiriko_x, g_kiriko_y, 0.0f));
-    //
-    //g_ana_matrix = glm::translate(g_ana_matrix, glm::vec3(g_ana_x, g_ana_y, 0.0f));
-    //g_kiriko_matrix = glm::translate(g_ana_matrix, glm::vec3(g_kiriko_x, g_kiriko_y, 0.0f));
-    //g_kiriko_matrix = glm::scale(g_kiriko_matrix, g_scale_kiriko);
-    //g_ana_matrix = glm::rotate(g_ana_matrix, g_rotation_ana.y, glm::vec3(0.0f, 1.0f, 0.0f));
+ 
     
 
+    //COLLISION THINGS
+    //float x_red_distance = fabs(g_red_position.x + INIT_POS_RED.x) - ((INIT_RED_SCALE.x + INIT_BLUE_SCALE.x) / 2.0f);
+
+    // Adjust for the top boundary collision
+    float y_red_distance_top = (g_red_position.y + INIT_POS_RED.y + INIT_RED_SCALE.y / 2.0f) - 3.75f;
+    float y_red_distance_bottom = (g_red_position.y + INIT_POS_RED.y - INIT_RED_SCALE.y / 2.0f) + 3.75f;
+
+    if (y_red_distance_top > 0)
+    {
+        red_collision_top = true;
+    }
+    else
+    {
+        red_collision_top = false;
+    }
+
+    if (y_red_distance_bottom < 0)
+    {
+        red_collision_bottom = true;
+    }
+    else
+    {
+        red_collision_bottom = false;
+    }
+
+
+    float y_blue_distance_top = (g_blue_position.y + INIT_POS_BLUE.y + INIT_BLUE_SCALE.y / 2.0f) - 3.75f;
+    float y_blue_distance_bottom = (g_blue_position.y + INIT_POS_BLUE.y - INIT_BLUE_SCALE.y / 2.0f) + 3.75f;
+
+    if (y_blue_distance_top > 0)
+    {
+        blue_collision_top = true;
+    }
+    else
+    {
+        blue_collision_top = false;
+    }
+
+    if (y_blue_distance_bottom < 0)
+    {
+        blue_collision_bottom = true;
+    }
+    else
+    {
+        blue_collision_bottom = false;
+    }
+
+    g_ballz_movement.x = 3.0f;
+    g_ballz_position += g_ballz_movement * delta_time;
+    
+
+    //MF BALLZ DUDE
+    g_ballz_matrix = glm::translate(g_ballz_matrix, g_ballz_position);
 }
 
 void draw_object(glm::mat4& object_g_model_matrix, GLuint& object_texture_id)
@@ -307,8 +465,8 @@ void render() {
     
     //bind texture
     draw_object(g_red_matrix, g_red_texture_id);
-    //draw_object(g_blue_matrix, g_blue_texture_id);
-    //draw_object(g_ballz_matrix, g_ballz_texture_id);
+    draw_object(g_blue_matrix, g_blue_texture_id);
+    draw_object(g_ballz_matrix, g_ballz_texture_id);
 
 
     glDisableVertexAttribArray(g_shader_program.get_position_attribute());
