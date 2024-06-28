@@ -1,13 +1,12 @@
 /**
- * @file main.cpp
- * @author Joseph Lin (jcl9683@nyu.edu)
- * Assignment: Simple 2D Scene
- * Date due: 2024-06-15, 11:59pm
- * I pledge that I have completed this assignment without
- * collaborating with anyone else, in conformance with the
- * NYU School of Engineering Policies and Procedures on
- * Academic Misconduct.
- */
+* Author: [Joseph Lin]
+* Assignment: Pong Clone
+* Date due: 2024-06-29, 11:59pm
+* I pledge that I have completed this assignment without
+* collaborating with anyone else, in conformance with the
+* NYU School of Engineering Policies and Procedures on
+* Academic Misconduct.
+**/
 #define GL_SILENCE_DEPRECATION
 #define STB_IMAGE_IMPLEMENTATION
 #define GL_GLEXT_PROTOTYPES 1
@@ -57,14 +56,17 @@ constexpr GLint NUMBER_OF_TEXTURES = 1,
 constexpr char RED_SPRITE_FILEPATH[] = "red.png";
 constexpr char BLUE_SPRITE_FILEPATH[] = "blue.png";
 constexpr char BALLZ_SPRITE_FILEPATH[] = "ballz.png";
+constexpr char YOU_WIN_FILEPATH[] = "you_win.png";
 
 //pong!
 constexpr glm::vec3 INIT_RED_SCALE = glm::vec3(1.0f, 3.0f, 0.0f),
                     INIT_BLUE_SCALE = glm::vec3(1.0f, 3.0f, 0.0f),
                     INIT_BALLZ_SCALE = glm::vec3(1.0f, 1.0f, 0.0f);
 
-constexpr glm::vec3 INIT_POS_RED = glm::vec3(-3.0f, 0.0f, 0.0f);
-constexpr glm::vec3 INIT_POS_BLUE = glm::vec3(3.0f, 0.0f, 0.0f);
+constexpr glm::vec3 INIT_POS_RED = glm::vec3(-4.0f, 0.0f, 0.0f);
+constexpr glm::vec3 INIT_POS_BLUE = glm::vec3(4.0f, 0.0f, 0.0f);
+
+bool game_start = false;
 
 bool red_collision_top = false;
 bool red_collision_bottom = false;
@@ -74,7 +76,8 @@ bool red_collision_bottom_ai = false;
 bool blue_collision_top = false;
 bool blue_collision_bottom = false;
 
-
+bool blue_win = false;
+bool red_win = false;
 
 
 bool ballz_collision_top = false;
@@ -86,6 +89,8 @@ bool ballz_collision_left = false;
 
 bool ai_mode = false;
 
+constexpr float MIN_COLLISION_DISTANCE = 1.0f;
+
 //keeping track of position using vectors
 glm::vec3 g_blue_position = glm::vec3(0.0f, 0.0f, 0.0f);
 glm::vec3 g_blue_movement = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -94,8 +99,10 @@ glm::vec3 g_red_position = glm::vec3(0.0f, 0.0f, 0.0f);
 glm::vec3 g_red_movement = glm::vec3(0.0f, 0.0f, 0.0f);
 
 glm::vec3 g_ballz_position = glm::vec3(0.0f, 0.0f, 0.0f);
-glm::vec3 g_ballz_movement = glm::vec3(0.0f, 0.0f, 0.0f);
+glm::vec3 g_ballz_movement = glm::vec3(1.0f, 1.0f, 0.0f);
 
+float ballz_increment_x = 2.0f;
+float ballz_increment_y = 2.0f;
 float increment = 3.0f;
 float direction = 0.0f;
 float g_blue_speed = 3.0f;
@@ -110,11 +117,13 @@ glm::mat4 g_view_matrix,
           g_blue_matrix,
           g_red_matrix,
           g_ballz_matrix,
+          g_win_matrix,
           g_projection_matrix;
 
 GLuint g_blue_texture_id;
 GLuint g_red_texture_id;
 GLuint g_ballz_texture_id;
+GLuint g_win_texture_id;
 
 GLuint load_texture(const char* filepath)
 {
@@ -175,6 +184,7 @@ void initialise()
     g_blue_matrix = glm::mat4(1.0f);
     g_ballz_matrix = glm::mat4(1.0f);
     g_view_matrix = glm::mat4(1.0f);
+    g_win_matrix = glm::mat4(1.0f);
     g_projection_matrix = glm::ortho(-5.0f, 5.0f, -3.75f, 3.75f, -1.0f, 1.0f);
 
     g_shader_program.set_projection_matrix(g_projection_matrix);
@@ -187,6 +197,7 @@ void initialise()
     g_blue_texture_id = load_texture(BLUE_SPRITE_FILEPATH);
     g_red_texture_id = load_texture(RED_SPRITE_FILEPATH);
     g_ballz_texture_id = load_texture(BALLZ_SPRITE_FILEPATH);
+    g_win_texture_id = load_texture(YOU_WIN_FILEPATH);
 
     //g_kiriko_texture_id = load_texture(KIRIKO_SPRITE_FILEPATH);
     //g_ana_texture_id = load_texture(ANA_SPRITE_FILEPATH);
@@ -242,6 +253,9 @@ void process_input()
                         break;
                     case SDLK_t:
                         ai_mode = !(ai_mode);
+                        break;
+                    case SDLK_SPACE:
+                        game_start = true;
                         break;
 
                     default:
@@ -317,16 +331,35 @@ void update()
     g_previous_ticks = ticks;
   
 
+
     //player input changes
     g_blue_position += g_blue_movement * g_blue_speed * delta_time;
     g_red_position += g_red_movement * g_red_speed * delta_time;
 
     //PONG RESETS
+    g_win_matrix = glm::mat4(1.0f);
     g_red_matrix = glm::mat4(1.0f);
     g_blue_matrix = glm::mat4(1.0f);
     g_ballz_matrix = glm::mat4(1.0f);
 
-   
+
+    //win text initial position
+
+    if (blue_win == false && red_win == false)
+    {
+        g_win_matrix = glm::translate(g_win_matrix, glm::vec3(10.0f, 0.0f, 0.0f));
+    }
+    if (blue_win == true)
+    {
+        g_win_matrix = glm::translate(g_win_matrix, glm::vec3(3.0f, 0.0f, 0.0f));
+    }
+    if (red_win == true)
+    {
+        g_win_matrix = glm::translate(g_win_matrix, glm::vec3(-3.0f, 0.0f, 0.0f));
+    }
+
+    g_win_matrix = glm::scale(g_win_matrix, glm::vec3(2.0f, 2.0f, 0.0f));
+
     //PONG STUFFS BROSSKIE
     
     //red!
@@ -414,12 +447,112 @@ void update()
         blue_collision_bottom = false;
     }
 
-    g_ballz_movement.x = 3.0f;
-    g_ballz_position += g_ballz_movement * delta_time;
+
+    
+    //BALLZ COLLISIONS
+    g_ballz_matrix = glm::mat4(1.0f);
+    if (ballz_collision_top == true || ballz_collision_bottom == true)
+    {
+        ballz_increment_y = -ballz_increment_y;
+    }
+    if (ballz_collision_right == true || ballz_collision_left == true)
+    {
+        ballz_increment_x = 0;
+        ballz_increment_y = 0;
+    }
+    //if (ballz)
+    //g_ballz_movement.y = 3.0f;
+    if (game_start == true)
+    {
+        g_ballz_position.x += ballz_increment_x * delta_time;
+        g_ballz_position.y += ballz_increment_y * delta_time;
+    }
+    
+    
+
+    
+    //top bottom ball collision
+    float y_ballz_distance_top = (g_ballz_position.y + INIT_BALLZ_SCALE.y / 2.0f) - 3.75f;
+    float y_ballz_distance_bottom = (g_ballz_position.y - INIT_BALLZ_SCALE.y / 2.0f) + 3.75f;
+
+    //left right ball collision
+    //right
+    float x_ballz_distance_right = (g_ballz_position.x + INIT_BALLZ_SCALE.x / 2.0f) - 5.0f;
+    float x_ballz_distance_left = (g_ballz_position.x - INIT_BALLZ_SCALE.x / 2.0f) + 5.0f;
+    
+    if (y_ballz_distance_top > 0)
+    {
+        ballz_collision_top = true;
+    }
+    else
+    {
+        ballz_collision_top = false;
+    }
+    if (y_ballz_distance_bottom < 0)
+    {
+        ballz_collision_bottom = true;
+    }
+    else
+    {
+        ballz_collision_bottom = false;
+    }
+    //left-right
+    if (x_ballz_distance_right > 0)
+    {
+        ballz_collision_right = true;
+        red_win = true;
+    }
+    else
+    {
+        ballz_collision_right = false;
+    }
+    if (x_ballz_distance_left < 0)
+    {
+        ballz_collision_left = true;
+        blue_win = true;
+    }
+    else
+    {
+        ballz_collision_left = false;
+    }
+
     
 
     //MF BALLZ DUDE
-    g_ballz_matrix = glm::translate(g_ballz_matrix, g_ballz_position);
+    g_ballz_matrix = glm::mat4(1.0f);
+
+    
+
+    float collision_factor = 0.5f;
+    //BALLZ COLLISION WITH pADdLleS
+
+    //blue
+    float x_ballz_distance_blue = fabs(g_ballz_position.x - INIT_POS_BLUE.x) - 
+                   ((INIT_BLUE_SCALE.x * collision_factor + INIT_BALLZ_SCALE.x * collision_factor) / 2.0f);
+    float y_ballz_distance_blue = fabs(g_ballz_position.y - (g_blue_position.y + INIT_POS_BLUE.y)) -
+        ((INIT_BLUE_SCALE.y * collision_factor + INIT_BALLZ_SCALE.y * collision_factor) / 2.0f);
+
+    //red
+    float x_ballz_distance_red = fabs(g_ballz_position.x - INIT_POS_RED.x) -
+        ((INIT_RED_SCALE.x * collision_factor + INIT_BALLZ_SCALE.x * collision_factor) / 2.0f);
+    float y_ballz_distance_red = fabs(g_ballz_position.y - (g_red_position.y + INIT_POS_RED.y)) -
+        ((INIT_RED_SCALE.y * collision_factor + INIT_BALLZ_SCALE.y * collision_factor) / 2.0f);
+
+    if (x_ballz_distance_blue <= 0.0f && y_ballz_distance_blue <= 0.0f)
+    {
+        ballz_increment_x = -ballz_increment_x;
+
+    }
+    if (x_ballz_distance_red <= 0.0f && y_ballz_distance_red <= 0.0f)
+    {
+        ballz_increment_x = -ballz_increment_x;
+
+    }
+    if (game_start == true)
+    {
+        g_ballz_matrix = glm::translate(g_ballz_matrix, g_ballz_position);
+    }
+    
 }
 
 void draw_object(glm::mat4& object_g_model_matrix, GLuint& object_texture_id)
@@ -467,6 +600,7 @@ void render() {
     draw_object(g_red_matrix, g_red_texture_id);
     draw_object(g_blue_matrix, g_blue_texture_id);
     draw_object(g_ballz_matrix, g_ballz_texture_id);
+    draw_object(g_win_matrix, g_win_texture_id);
 
 
     glDisableVertexAttribArray(g_shader_program.get_position_attribute());
