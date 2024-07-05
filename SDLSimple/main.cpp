@@ -1,129 +1,193 @@
-/**
-* Author: [Joseph Lin]
-* Assignment: Pong Clone
-* Date due: 2024-06-29, 11:59pm
-* I pledge that I have completed this assignment without
-* collaborating with anyone else, in conformance with the
-* NYU School of Engineering Policies and Procedures on
-* Academic Misconduct.
-**/
 #define GL_SILENCE_DEPRECATION
 #define STB_IMAGE_IMPLEMENTATION
-#define GL_GLEXT_PROTOTYPES 1
-#define LOG(argument) std::cout << argument << '\n'
 
 #ifdef _WINDOWS
 #include <GL/glew.h>
 #endif
 
+#define GL_GLEXT_PROTOTYPES 1
 #include <SDL.h>
 #include <SDL_opengl.h>
 #include "glm/mat4x4.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include "ShaderProgram.h"
 #include "stb_image.h"
+#include <vector>
 
-enum AppStatus { RUNNING, TERMINATED };
-enum ScaleDirection { GROWING, SHRINKING };
+enum Coordinate
+{
+    x_coordinate,
+    y_coordinate
+};
 
-constexpr int WINDOW_WIDTH = 550 * 2,
-              WINDOW_HEIGHT = 400 * 2;
+#define LOG(argument) std::cout << argument << '\n'
 
-constexpr float BG_RED = 0.1922f,
-                BG_BLUE = 0.549f,
-                BG_GREEN = 0.9059f,
-                BG_OPACITY = 1.0f;
+const int WINDOW_WIDTH = 640,
+WINDOW_HEIGHT = 480;
 
-constexpr int VIEWPORT_X = 0,
-              VIEWPORT_Y = 0,
-              VIEWPORT_WIDTH = WINDOW_WIDTH,
-              VIEWPORT_HEIGHT = WINDOW_HEIGHT;
+const float BG_RED = 0.9608f,
+BG_BLUE = 0.9608f,
+BG_GREEN = 0.9608f,
+BG_OPACITY = 1.0f;
 
-constexpr char V_SHADER_PATH[] = "shaders/vertex_textured.glsl",
-                F_SHADER_PATH[] = "shaders/fragment_textured.glsl";
+const int VIEWPORT_X = 0,
+VIEWPORT_Y = 0,
+VIEWPORT_WIDTH = WINDOW_WIDTH,
+VIEWPORT_HEIGHT = WINDOW_HEIGHT;
 
-//Delta time
-constexpr float MILLISECONDS_IN_SECOND = 1000.0;
-float g_previous_ticks = 0.0f;
+const char V_SHADER_PATH[] = "shaders/vertex_textured.glsl",
+F_SHADER_PATH[] = "shaders/fragment_textured.glsl";
 
-constexpr float ROT_INCREMENT = 1.0f;
-//texture global variables
-constexpr GLint NUMBER_OF_TEXTURES = 1,
-                LEVEL_OF_DETAIL = 0,
-                TEXTURE_BORDER = 0;
+const float MILLISECONDS_IN_SECOND = 1000.0;
+const float DEGREES_PER_SECOND = 90.0f;
 
-//pong!
-constexpr char RED_SPRITE_FILEPATH[] = "red.png";
-constexpr char BLUE_SPRITE_FILEPATH[] = "blue.png";
-constexpr char BALLZ_SPRITE_FILEPATH[] = "ballz.png";
-constexpr char YOU_WIN_FILEPATH[] = "you_win.png";
+const glm::vec3 ORIGIN = glm::vec3(0.0f, 0.0f, 0.0f),
+DOUBLE = glm::vec3(2.0f, 2.0f, 0.0f);
 
-//pong!
-constexpr glm::vec3 INIT_RED_SCALE = glm::vec3(1.0f, 3.0f, 0.0f),
-                    INIT_BLUE_SCALE = glm::vec3(1.0f, 3.0f, 0.0f),
-                    INIT_BALLZ_SCALE = glm::vec3(1.0f, 1.0f, 0.0f);
+const int NUMBER_OF_TEXTURES = 1;
+const GLint LEVEL_OF_DETAIL = 0;
+const GLint TEXTURE_BORDER = 0;
 
-constexpr glm::vec3 INIT_POS_RED = glm::vec3(-4.0f, 0.0f, 0.0f);
-constexpr glm::vec3 INIT_POS_BLUE = glm::vec3(4.0f, 0.0f, 0.0f);
+const char PLAYER_SPRITE_FILEPATH[] = "sprites/sonic.png",
+FRAME_SPRITE_FILEPATH[] = "sprites/frame.png",
+FONT_SPRITE_FILEPATH[] = "sprites/font1.png";
 
-bool game_start = false;
+const int CHARACTER_SHEET_ROWS = 1,
+CHARACTER_SHEET_COLS = 4,
+FRAME_ROWS = 1,
+FRAME_COLS = 1;
 
-bool red_collision_top = false;
-bool red_collision_bottom = false;
-bool red_collision_top_ai = false;
-bool red_collision_bottom_ai = false;
-
-bool blue_collision_top = false;
-bool blue_collision_bottom = false;
-
-bool blue_win = false;
-bool red_win = false;
-
-
-bool ballz_collision_top = false;
-bool ballz_collision_bottom = false;
-bool ballz_collision_right = false;
-bool ballz_collision_left = false;
-
-
-
-bool ai_mode = false;
-
-constexpr float MIN_COLLISION_DISTANCE = 1.0f;
-
-//keeping track of position using vectors
-glm::vec3 g_blue_position = glm::vec3(0.0f, 0.0f, 0.0f);
-glm::vec3 g_blue_movement = glm::vec3(0.0f, 0.0f, 0.0f);
-
-glm::vec3 g_red_position = glm::vec3(0.0f, 0.0f, 0.0f);
-glm::vec3 g_red_movement = glm::vec3(0.0f, 0.0f, 0.0f);
-
-glm::vec3 g_ballz_position = glm::vec3(0.0f, 0.0f, 0.0f);
-glm::vec3 g_ballz_movement = glm::vec3(1.0f, 1.0f, 0.0f);
-
-float ballz_increment_x = 2.0f;
-float ballz_increment_y = 2.0f;
-float increment = 3.0f;
-float direction = 0.0f;
-float g_blue_speed = 3.0f;
-float g_red_speed = 3.0f;
+const int FONTBANK_SIZE = 16,
+FRAMES_PER_SECOND = 4;
 
 SDL_Window* g_display_window;
-AppStatus g_app_status = RUNNING;
-ShaderProgram g_shader_program = ShaderProgram();
+bool g_game_is_running = true;
+bool g_is_growing = true;
 
-//PONG!
+ShaderProgram g_shader_program;
+
 glm::mat4 g_view_matrix,
-          g_blue_matrix,
-          g_red_matrix,
-          g_ballz_matrix,
-          g_win_matrix,
-          g_projection_matrix;
+g_character_model_matrix,
+g_frame_model_matrix,
+g_projection_matrix;
 
-GLuint g_blue_texture_id;
-GLuint g_red_texture_id;
-GLuint g_ballz_texture_id;
-GLuint g_win_texture_id;
+float g_previous_ticks = 0.0f;
+
+GLuint g_character_texture_id,
+g_frame_texture_id,
+g_text_texture_id;
+
+// ———— PART 1 ———— //
+constexpr int SPRITESHEET_DIMENSIONS = 4;
+bool s_key = false;
+int g_animation_indices[4] = { 0, 1, 2, 3 };
+float frame_tracker = 0.0f;
+float g_animation_time = 0.0f;
+int g_animation_frames = SPRITESHEET_DIMENSIONS;
+int g_animation_index = 0;
+constexpr int SECONDS_PER_FRAME = 4;
+
+// ———— PART 1 ———— //
+
+void draw_text(ShaderProgram* program, GLuint font_texture_id, std::string text, float screen_size, float spacing, glm::vec3 position)
+{
+    // Scale the size of the fontbank in the UV-plane
+    // We will use this for spacing and positioning
+    float width = 1.0f / FONTBANK_SIZE;
+    float height = 1.0f / FONTBANK_SIZE;
+
+    // Instead of having a single pair of arrays, we'll have a series of pairs—one for each character
+    // Don't forget to include <vector>!
+    std::vector<float> vertices;
+    std::vector<float> texture_coordinates;
+
+    // For every character...
+    for (int i = 0; i < text.size(); i++) {
+        // 1. Get their index in the spritesheet, as well as their offset (i.e. their position
+        //    relative to the whole sentence)
+        int spritesheet_index = (int)text[i];  // ascii value of character
+        float offset = (screen_size + spacing) * i;
+
+        // 2. Using the spritesheet index, we can calculate our U- and V-coordinates
+        float u_coordinate = (float)(spritesheet_index % FONTBANK_SIZE) / FONTBANK_SIZE;
+        float v_coordinate = (float)(spritesheet_index / FONTBANK_SIZE) / FONTBANK_SIZE;
+
+        // 3. Inset the current pair in both vectors
+        vertices.insert(vertices.end(), {
+            offset + (-0.5f * screen_size), 0.5f * screen_size,
+            offset + (-0.5f * screen_size), -0.5f * screen_size,
+            offset + (0.5f * screen_size), 0.5f * screen_size,
+            offset + (0.5f * screen_size), -0.5f * screen_size,
+            offset + (0.5f * screen_size), 0.5f * screen_size,
+            offset + (-0.5f * screen_size), -0.5f * screen_size,
+            });
+
+        texture_coordinates.insert(texture_coordinates.end(), {
+            u_coordinate, v_coordinate,
+            u_coordinate, v_coordinate + height,
+            u_coordinate + width, v_coordinate,
+            u_coordinate + width, v_coordinate + height,
+            u_coordinate + width, v_coordinate,
+            u_coordinate, v_coordinate + height,
+            });
+    }
+
+    // 4. And render all of them using the pairs
+    glm::mat4 model_matrix = glm::mat4(1.0f);
+    model_matrix = glm::translate(model_matrix, position);
+
+    program->set_model_matrix(model_matrix);
+    glUseProgram(program->get_program_id());
+
+    glVertexAttribPointer(program->get_position_attribute(), 2, GL_FLOAT, false, 0, vertices.data());
+    glEnableVertexAttribArray(program->get_position_attribute());
+    glVertexAttribPointer(program->get_tex_coordinate_attribute(), 2, GL_FLOAT, false, 0, texture_coordinates.data());
+    glEnableVertexAttribArray(program->get_tex_coordinate_attribute());
+
+    glBindTexture(GL_TEXTURE_2D, font_texture_id);
+    glDrawArrays(GL_TRIANGLES, 0, (int)(text.size() * 6));
+
+    glDisableVertexAttribArray(program->get_position_attribute());
+    glDisableVertexAttribArray(program->get_tex_coordinate_attribute());
+}
+
+void draw_sprite_from_texture_atlas(ShaderProgram* program, GLuint texture_id, int index, int rows, int cols)
+{
+    // Step 1: Calculate the UV location of the indexed frame
+    float u_coord = (float)(index % cols) / (float)cols;
+    float v_coord = (float)(index / cols) / (float)rows;
+
+    // Step 2: Calculate its UV size
+    float width = 1.0f / (float)cols;
+    float height = 1.0f / (float)rows;
+
+    // Step 3: Match the texture coordinates to the vertices
+    float tex_coords[] =
+    {
+        u_coord, v_coord + height, u_coord + width, v_coord + height, u_coord + width, v_coord,
+        u_coord, v_coord + height, u_coord + width, v_coord, u_coord, v_coord
+    };
+
+    float vertices[] =
+    {
+        -0.5, -0.5, 0.5, -0.5,  0.5, 0.5,
+        -0.5, -0.5, 0.5,  0.5, -0.5, 0.5
+    };
+
+    // Step 4: Render stuff
+    glBindTexture(GL_TEXTURE_2D, texture_id);
+
+    glVertexAttribPointer(program->get_position_attribute(), 2, GL_FLOAT, false, 0, vertices);
+    glEnableVertexAttribArray(program->get_position_attribute());
+
+    glVertexAttribPointer(program->get_tex_coordinate_attribute(), 2, GL_FLOAT, false, 0, tex_coords);
+    glEnableVertexAttribArray(program->get_tex_coordinate_attribute());
+
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    glDisableVertexAttribArray(program->get_position_attribute());
+    glDisableVertexAttribArray(program->get_tex_coordinate_attribute());
+}
 
 GLuint load_texture(const char* filepath)
 {
@@ -150,27 +214,25 @@ GLuint load_texture(const char* filepath)
     // STEP 4: Releasing our file from memory and returning our texture id
     stbi_image_free(image);
 
+    // Setting our texture wrapping modes
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); // the last argument can change depending on what you are looking for
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
     return textureID;
 }
 
 void initialise()
 {
-    SDL_Init(SDL_INIT_VIDEO);
-    g_display_window = SDL_CreateWindow("Assignment 2 :O",
-                                SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                WINDOW_WIDTH, WINDOW_HEIGHT,
-                                SDL_WINDOW_OPENGL);
+    // Initialise video and joystick subsystems
+    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK);
+
+    g_display_window = SDL_CreateWindow("Hello, Animation!",
+        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+        WINDOW_WIDTH, WINDOW_HEIGHT,
+        SDL_WINDOW_OPENGL);
 
     SDL_GLContext context = SDL_GL_CreateContext(g_display_window);
     SDL_GL_MakeCurrent(g_display_window, context);
-
-    if (g_display_window == nullptr)
-    {
-        std::cerr << "Error: SDL window could not be created.\n";
-        SDL_Quit();
-        exit(1);
-
-    }
 
 #ifdef _WINDOWS
     glewInit();
@@ -180,444 +242,136 @@ void initialise()
 
     g_shader_program.load(V_SHADER_PATH, F_SHADER_PATH);
 
-    g_red_matrix = glm::mat4(1.0f);
-    g_blue_matrix = glm::mat4(1.0f);
-    g_ballz_matrix = glm::mat4(1.0f);
-    g_view_matrix = glm::mat4(1.0f);
-    g_win_matrix = glm::mat4(1.0f);
-    g_projection_matrix = glm::ortho(-5.0f, 5.0f, -3.75f, 3.75f, -1.0f, 1.0f);
+    // ————— INSTANTIATING VIEW AND PROJ MATRICES ———— //
+    g_view_matrix = glm::mat4(1.0f);  // Defines the position (location and orientation) of the camera
+    g_projection_matrix = glm::ortho(-5.0f, 5.0f, -3.75f, 3.75f, -1.0f, 1.0f);  // Defines the characteristics of your camera, such as clip planes, field of view, projection method etc.
 
+    // ————— CHARACTER ———— //
+    g_character_model_matrix = glm::mat4(1.0f);
     g_shader_program.set_projection_matrix(g_projection_matrix);
     g_shader_program.set_view_matrix(g_view_matrix);
 
     glUseProgram(g_shader_program.get_program_id());
+    g_character_texture_id = load_texture(PLAYER_SPRITE_FILEPATH);
 
+    // ————— FRAME ———— //
+    g_frame_model_matrix = glm::mat4(1.0f);
+
+    glUseProgram(g_shader_program.get_program_id());
+    g_frame_texture_id = load_texture(FRAME_SPRITE_FILEPATH);
+
+    // ———— TEXT ———— //
+    glUseProgram(g_shader_program.get_program_id());
+    g_text_texture_id = load_texture(FONT_SPRITE_FILEPATH);
+
+    // ————— GENERAL ———— //
     glClearColor(BG_RED, BG_BLUE, BG_GREEN, BG_OPACITY);
-
-    g_blue_texture_id = load_texture(BLUE_SPRITE_FILEPATH);
-    g_red_texture_id = load_texture(RED_SPRITE_FILEPATH);
-    g_ballz_texture_id = load_texture(BALLZ_SPRITE_FILEPATH);
-    g_win_texture_id = load_texture(YOU_WIN_FILEPATH);
-
-    //g_kiriko_texture_id = load_texture(KIRIKO_SPRITE_FILEPATH);
-    //g_ana_texture_id = load_texture(ANA_SPRITE_FILEPATH);
-
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
-
 void process_input()
 {
-    
-    g_red_movement = glm::vec3(0.0f);
-    g_blue_movement = glm::vec3(0.0f);
-    g_ballz_movement = glm::vec3(0.0f);
-
-
-    
-    
-    
-    
     SDL_Event event;
+
     while (SDL_PollEvent(&event))
     {
-        switch (event.type)
-        {
-            case SDL_QUIT:
-            case SDL_WINDOWEVENT_CLOSE:
-                g_app_status = TERMINATED;
+        switch (event.type) {
+        case SDL_WINDOWEVENT_CLOSE:
+        case SDL_QUIT:
+            g_game_is_running = false;
+            break;
+
+        case SDL_KEYDOWN:
+            switch (event.key.keysym.sym) {
+            case SDLK_q:
+                g_game_is_running = false;
                 break;
-            
-            
-            case SDL_KEYDOWN:
-                switch (event.key.keysym.sym)
-                {
-                    case SDLK_UP:
-                        g_blue_movement.y = 1.0f;
-                        break;
 
-                    case SDLK_DOWN:
-                        g_blue_movement.y = -1.0f;
-                        break;
+                // ———— PART 2 ———— //
+            case SDLK_s:
+                s_key = true;
+                break;
 
-                    case SDLK_q:
-                        g_app_status = TERMINATED;
-                        break;
+                // ———— PART 2 ———— //
 
-                    case SDLK_w:
-                        g_red_movement.y = 1.0f;
-                        break;
-                    case SDLK_s:
-                        g_red_movement.y = -1.0f;
-                        break;
-                    case SDLK_t:
-                        ai_mode = !(ai_mode);
-                        break;
-                    case SDLK_SPACE:
-                        game_start = true;
-                        break;
-
-                    default:
-                        break;
-                }
-                default:
-                    break;
-        }
-    }
-
-
-    const Uint8* key_state = SDL_GetKeyboardState(NULL);
-    if (key_state[SDL_SCANCODE_UP])
-    {
-        if (blue_collision_top == false)
-        {
-            g_blue_movement.y = 1.0f;
-        }
-    }
-    else if (key_state[SDL_SCANCODE_DOWN])
-    {
-        if (blue_collision_bottom == false)
-        {
-            g_blue_movement.y = -1.0f;
-        }
-    }
-    
-    if (key_state[SDL_SCANCODE_W])
-    {
-        if (ai_mode == false)
-        {
-            if (red_collision_top == false)
-            {
-                g_red_movement.y = 1.0f;
+            default:
+                break;
             }
-
+        default:
+            break;
         }
-        
-        
     }
-    else if (key_state[SDL_SCANCODE_S])
-    {
-        if (ai_mode == false)
-        {
-            if (red_collision_bottom == false)
-            {
-                g_red_movement.y = -1.0f;
-            }
-
-        }
-        
-    }
-
-    //no cheating!!
-    if (glm::length(g_blue_movement) > 1.0f)
-    {
-        g_blue_movement = glm::normalize(g_blue_movement);
-    }
-    if (glm::length(g_red_movement) > 1.0f)
-    {
-        g_red_movement = glm::normalize(g_red_movement);
-    }
-
 }
-
 
 void update()
 {
-
-    //DELTA TIME STUFF BRO
-    float ticks = (float) SDL_GetTicks() / MILLISECONDS_IN_SECOND;
-    float delta_time = ticks - g_previous_ticks;
+    // ———— DELTA TIME CALCULATIONS ———— //
+    float ticks = (float)SDL_GetTicks() / MILLISECONDS_IN_SECOND; // get the current number of ticks
+    float delta_time = ticks - g_previous_ticks; // the delta time is the difference from the last frame
     g_previous_ticks = ticks;
-  
 
 
-    //player input changes
-    g_blue_position += g_blue_movement * g_blue_speed * delta_time;
-    g_red_position += g_red_movement * g_red_speed * delta_time;
 
-    //PONG RESETS
-    g_win_matrix = glm::mat4(1.0f);
-    g_red_matrix = glm::mat4(1.0f);
-    g_blue_matrix = glm::mat4(1.0f);
-    g_ballz_matrix = glm::mat4(1.0f);
-
-
-    //win text initial position
-
-    if (blue_win == false && red_win == false)
+    // ———— PART 3 ———— //
+    if (s_key == false)
     {
-        g_win_matrix = glm::translate(g_win_matrix, glm::vec3(10.0f, 0.0f, 0.0f));
-    }
-    if (blue_win == true)
-    {
-        g_win_matrix = glm::translate(g_win_matrix, glm::vec3(3.0f, 0.0f, 0.0f));
-    }
-    if (red_win == true)
-    {
-        g_win_matrix = glm::translate(g_win_matrix, glm::vec3(-3.0f, 0.0f, 0.0f));
-    }
+        g_animation_time += delta_time;
+        float frames_per_second = (float)1 / SECONDS_PER_FRAME;
 
-    g_win_matrix = glm::scale(g_win_matrix, glm::vec3(2.0f, 2.0f, 0.0f));
-
-    //PONG STUFFS BROSSKIE
-    
-    //red!
-    g_red_matrix = glm::translate(g_red_matrix, g_red_position);
-    if (ai_mode == true)
-    {
-        g_red_matrix = glm::mat4(1.0f);
-        if (red_collision_top_ai == true || red_collision_bottom_ai == true)
+        if (g_animation_time >= frames_per_second)
         {
-            increment = -increment;
+            g_animation_time = 0.0f;
+            g_animation_index++;
+
+            if (g_animation_index >= g_animation_frames)
+            {
+                g_animation_index = 0;
+            }
         }
-        direction += increment * delta_time;
-        g_red_matrix = glm::translate(g_red_matrix, glm::vec3(0.0f, direction, 0.0f));
-      
-        float y_red_distance_top_ai = (direction + INIT_POS_RED.y + INIT_RED_SCALE.y / 2.0f) - 3.75f;
-        float y_red_distance_bottom_ai = (direction + INIT_POS_RED.y - INIT_RED_SCALE.y / 2.0f) + 3.75f;
-
-        if (y_red_distance_top_ai > 0)
-        {
-            red_collision_top_ai = true;
-        }
-        else { red_collision_top_ai = false; }
-        if (y_red_distance_bottom_ai < 0)
-        {
-            red_collision_bottom_ai = true;
-        }
-        else { red_collision_bottom_ai = false; }
-    }
-    g_red_matrix = glm::translate(g_red_matrix, INIT_POS_RED);
-    g_red_matrix = glm::scale(g_red_matrix, INIT_RED_SCALE);
-    
-    
-    //blue! 
-    g_blue_matrix = glm::translate(g_blue_matrix, INIT_POS_BLUE);
-    g_blue_matrix = glm::translate(g_blue_matrix, g_blue_position);
-    g_blue_matrix = glm::scale(g_blue_matrix, INIT_BLUE_SCALE);
-
- 
-    
-
-    //COLLISION THINGS
-    //float x_red_distance = fabs(g_red_position.x + INIT_POS_RED.x) - ((INIT_RED_SCALE.x + INIT_BLUE_SCALE.x) / 2.0f);
-
-    // Adjust for the top boundary collision
-    float y_red_distance_top = (g_red_position.y + INIT_POS_RED.y + INIT_RED_SCALE.y / 2.0f) - 3.75f;
-    float y_red_distance_bottom = (g_red_position.y + INIT_POS_RED.y - INIT_RED_SCALE.y / 2.0f) + 3.75f;
-
-    if (y_red_distance_top > 0)
-    {
-        red_collision_top = true;
-    }
-    else
-    {
-        red_collision_top = false;
     }
 
-    if (y_red_distance_bottom < 0)
-    {
-        red_collision_bottom = true;
-    }
-    else
-    {
-        red_collision_bottom = false;
-    }
+    // ———— PART 3 ———— //
 
+    // ———— RESETTING MODEL MATRICES ———— //
+    g_character_model_matrix = glm::mat4(1.0f);
+    g_frame_model_matrix = glm::mat4(1.0f);
 
-    float y_blue_distance_top = (g_blue_position.y + INIT_POS_BLUE.y + INIT_BLUE_SCALE.y / 2.0f) - 3.75f;
-    float y_blue_distance_bottom = (g_blue_position.y + INIT_POS_BLUE.y - INIT_BLUE_SCALE.y / 2.0f) + 3.75f;
+    g_character_model_matrix = glm::translate(g_character_model_matrix, ORIGIN);
+    g_frame_model_matrix = glm::translate(g_frame_model_matrix, ORIGIN);
 
-    if (y_blue_distance_top > 0)
-    {
-        blue_collision_top = true;
-    }
-    else
-    {
-        blue_collision_top = false;
-    }
-
-    if (y_blue_distance_bottom < 0)
-    {
-        blue_collision_bottom = true;
-    }
-    else
-    {
-        blue_collision_bottom = false;
-    }
-
-
-    
-    //BALLZ COLLISIONS
-    g_ballz_matrix = glm::mat4(1.0f);
-    if (ballz_collision_top == true || ballz_collision_bottom == true)
-    {
-        ballz_increment_y = -ballz_increment_y;
-    }
-    if (ballz_collision_right == true || ballz_collision_left == true)
-    {
-        ballz_increment_x = 0;
-        ballz_increment_y = 0;
-    }
-    //if (ballz)
-    //g_ballz_movement.y = 3.0f;
-    if (game_start == true)
-    {
-        g_ballz_position.x += ballz_increment_x * delta_time;
-        g_ballz_position.y += ballz_increment_y * delta_time;
-    }
-    
-    
-
-    
-    //top bottom ball collision
-    float y_ballz_distance_top = (g_ballz_position.y + INIT_BALLZ_SCALE.y / 2.0f) - 3.75f;
-    float y_ballz_distance_bottom = (g_ballz_position.y - INIT_BALLZ_SCALE.y / 2.0f) + 3.75f;
-
-    //left right ball collision
-    //right
-    float x_ballz_distance_right = (g_ballz_position.x + INIT_BALLZ_SCALE.x / 2.0f) - 5.0f;
-    float x_ballz_distance_left = (g_ballz_position.x - INIT_BALLZ_SCALE.x / 2.0f) + 5.0f;
-    
-    if (y_ballz_distance_top > 0)
-    {
-        ballz_collision_top = true;
-    }
-    else
-    {
-        ballz_collision_top = false;
-    }
-    if (y_ballz_distance_bottom < 0)
-    {
-        ballz_collision_bottom = true;
-    }
-    else
-    {
-        ballz_collision_bottom = false;
-    }
-    //left-right
-    if (x_ballz_distance_right > 0)
-    {
-        ballz_collision_right = true;
-        red_win = true;
-    }
-    else
-    {
-        ballz_collision_right = false;
-    }
-    if (x_ballz_distance_left < 0)
-    {
-        ballz_collision_left = true;
-        blue_win = true;
-    }
-    else
-    {
-        ballz_collision_left = false;
-    }
-
-    
-
-    //MF BALLZ DUDE
-    g_ballz_matrix = glm::mat4(1.0f);
-
-    
-
-    float collision_factor = 0.5f;
-    //BALLZ COLLISION WITH pADdLleS
-
-    //blue
-    float x_ballz_distance_blue = fabs(g_ballz_position.x - INIT_POS_BLUE.x) - 
-                   ((INIT_BLUE_SCALE.x * collision_factor + INIT_BALLZ_SCALE.x * collision_factor) / 2.0f);
-    float y_ballz_distance_blue = fabs(g_ballz_position.y - (g_blue_position.y + INIT_POS_BLUE.y)) -
-        ((INIT_BLUE_SCALE.y * collision_factor + INIT_BALLZ_SCALE.y * collision_factor) / 2.0f);
-
-    //red
-    float x_ballz_distance_red = fabs(g_ballz_position.x - INIT_POS_RED.x) -
-        ((INIT_RED_SCALE.x * collision_factor + INIT_BALLZ_SCALE.x * collision_factor) / 2.0f);
-    float y_ballz_distance_red = fabs(g_ballz_position.y - (g_red_position.y + INIT_POS_RED.y)) -
-        ((INIT_RED_SCALE.y * collision_factor + INIT_BALLZ_SCALE.y * collision_factor) / 2.0f);
-
-    if (x_ballz_distance_blue <= 0.0f && y_ballz_distance_blue <= 0.0f)
-    {
-        ballz_increment_x = -ballz_increment_x;
-
-    }
-    if (x_ballz_distance_red <= 0.0f && y_ballz_distance_red <= 0.0f)
-    {
-        ballz_increment_x = -ballz_increment_x;
-
-    }
-    if (game_start == true)
-    {
-        g_ballz_matrix = glm::translate(g_ballz_matrix, g_ballz_position);
-    }
-    
+    g_frame_model_matrix = glm::scale(g_frame_model_matrix, DOUBLE);
+    g_character_model_matrix = glm::scale(g_character_model_matrix, DOUBLE * 0.75f);
 }
-
-void draw_object(glm::mat4& object_g_model_matrix, GLuint& object_texture_id)
-{
-    g_shader_program.set_model_matrix(object_g_model_matrix);
-    glBindTexture(GL_TEXTURE_2D, object_texture_id);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-}
-
 
 void render() {
     glClear(GL_COLOR_BUFFER_BIT);
 
+    g_shader_program.set_model_matrix(g_character_model_matrix);
 
-    //vertices
-    float vertices[] =
-    {
-         -0.5f, -0.5f, //bottom left
-         0.5f, -0.5f,  //bottom right
-         0.5f, 0.5f,
-         -0.5f, -0.5f, 
-         0.5f, 0.5f, 
-         -0.5f, 0.5f
-    };
+    // ———— PART 4 ———— //
+    draw_sprite_from_texture_atlas(&g_shader_program, g_character_texture_id, g_animation_indices[g_animation_index], CHARACTER_SHEET_ROWS, CHARACTER_SHEET_COLS);
+    // ———— PART 4 ———— //
 
+    g_shader_program.set_model_matrix(g_frame_model_matrix);
+    draw_sprite_from_texture_atlas(&g_shader_program, g_frame_texture_id, 0, FRAME_ROWS, FRAME_COLS);
 
-
-    //textures
-    float texture_coordinates[] = {
-        0.0f, 1.0f, // bottom left
-        1.0f, 1.0f, // bottom right
-        1.0f, 0.0f, // top right
-        0.0f, 1.0f, // bottom left
-        1.0f, 0.0f, // top right
-        0.0f, 0.0f,  // top left
-    };
-
-    glVertexAttribPointer(g_shader_program.get_position_attribute(), 2, GL_FLOAT, false, 0, vertices);
-    glEnableVertexAttribArray(g_shader_program.get_position_attribute());
-
-    glVertexAttribPointer(g_shader_program.get_tex_coordinate_attribute(), 2, GL_FLOAT, false, 0, texture_coordinates);
-    glEnableVertexAttribArray(g_shader_program.get_tex_coordinate_attribute());
-    
-    //bind texture
-    draw_object(g_red_matrix, g_red_texture_id);
-    draw_object(g_blue_matrix, g_blue_texture_id);
-    draw_object(g_ballz_matrix, g_ballz_texture_id);
-    draw_object(g_win_matrix, g_win_texture_id);
-
-
-    glDisableVertexAttribArray(g_shader_program.get_position_attribute());
-    glDisableVertexAttribArray(g_shader_program.get_tex_coordinate_attribute());
+    draw_text(&g_shader_program, g_text_texture_id, std::string("PRESS S TO"), 0.25f, 0.0f, glm::vec3(-1.25f, 2.0f, 0.0f));
+    draw_text(&g_shader_program, g_text_texture_id, std::string("CHOOSE YOUR CHARACTER"), 0.25f, 0.01f, glm::vec3(-2.5f, 1.5f, 0.0f));
 
     SDL_GL_SwapWindow(g_display_window);
 }
 
-
 void shutdown() { SDL_Quit(); }
 
-
-int main(int argc, char* args[])
+/**
+ Start here—we can see the general structure of a game loop without worrying too much about the details yet.
+ */
+int main(int argc, char* argv[])
 {
     initialise();
 
-    while (g_app_status == RUNNING)
+    while (g_game_is_running)
     {
         process_input();
         update();
